@@ -11,24 +11,55 @@ export const loadImage = (src: string): Promise<HTMLImageElement> => {
   });
 };
 
-export function getAllCoordinates(xDim: number, yDim: number, blockSize: number) {
-  const coordinates: Array<Array<number>> = [];
+// Jank functions to get and randomize coordinates without dropping any
+// while making coordinates near the border more likely to be returned first
+export function getAllCoordinates(
+  xDim: number,
+  yDim: number,
+  blockSize: number
+) {
+  const coordinates_outside: Array<Array<number>> = [];
+  const coordinates_inside: Array<Array<number>> = [];
+  const leftCutoff = xDim * 0.2;
+  const rightCutoff = xDim * 0.8;
+  const topCutoff = yDim * 0.2;
+  const bottomCutoff = yDim * 0.8;
   for (let i = 0; i <= xDim; i += blockSize) {
     for (let j = 0; j <= yDim; j += blockSize) {
-      coordinates.push([i, j]);
+      if (
+        i < leftCutoff ||
+        i > rightCutoff ||
+        j < topCutoff ||
+        j > bottomCutoff
+      ) {
+        coordinates_outside.push([i, j]);
+      } else {
+        coordinates_inside.push([i, j]);
+      }
     }
   }
-  return coordinates;
+  return [
+    coordinates_outside,
+    coordinates_inside
+  ];
 }
 
-// Randomize coordinates without dropping any
-export function randomizeCoordinates(coordinates: Array<Array<number>>) {
+export function randomizeCoordinates(
+  borderCoordinates: Array<Array<number>>,
+  insideCoordinates: Array<Array<number>>
+): Array<Array<number>> {
   const randomizedCoordinates: Array<Array<number>> = [];
-  const remainingCoordinates = [...coordinates];
 
-  while (remainingCoordinates.length > 0) {
-    const randomIndex = Math.floor(Math.random() * remainingCoordinates.length);
-    const randomCoordinate = remainingCoordinates.splice(randomIndex, 1)[0];
+  while (borderCoordinates.length > 0 || insideCoordinates.length > 0) {
+    const shouldSampleFromBorder =
+      borderCoordinates.length > 0 &&
+      (insideCoordinates.length === 0 || Math.random() < 0.60);
+    const sourceCoordinates = shouldSampleFromBorder
+      ? borderCoordinates
+      : insideCoordinates;
+    const randomIndex = Math.floor(Math.random() * sourceCoordinates.length);
+    const randomCoordinate = sourceCoordinates.splice(randomIndex, 1)[0];
+
     randomizedCoordinates.push(randomCoordinate);
   }
 

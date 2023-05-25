@@ -90,12 +90,11 @@ async function preloadImages() {
 let loadedImages: HTMLImageElement[] = [];
 await preloadImages();
 // Choose initial image
-let position = 3;
+let position = Math.floor(Math.random() * images.length);
 let img1 = loadedImages[position];
 
 // Set up canvasses
 const shot1Canvas = document.getElementById("shot1") as HTMLCanvasElement;
-console.log(shot1Canvas);
 const shot1Ctx = shot1Canvas.getContext("2d", {
   willReadFrequently: true,
 }) as CanvasRenderingContext2D;
@@ -121,24 +120,34 @@ shot1Canvas.width = 436;
 shot1Canvas.height = 654;
 shot2Canvas.width = 436;
 shot2Canvas.height = 654;
-background1Canvas.width = window.innerWidth;
-background1Canvas.height = window.innerHeight;
-background2Canvas.width = window.innerWidth;
-background2Canvas.height = window.innerHeight;
+background1Canvas.width = 436;
+background1Canvas.height = 654;
+background2Canvas.width = 436;
+background2Canvas.height = 654;
 
 // Configure block size and coordinate lists
-const shotBlockSize = 3;
-const backgroundBlockSize = 6;
-const shotCoords = randomizeCoordinates(
-  getAllCoordinates(shot1Canvas.width, shot1Canvas.height, shotBlockSize)
+const shotBlockSize = 4;
+const backgroundBlockSize = 4;
+
+let [shotBorderCoords, shotInsideCoords] = getAllCoordinates(
+  shot1Canvas.width,
+  shot1Canvas.height,
+  shotBlockSize
 );
-const backgroundCoords = randomizeCoordinates(
-  getAllCoordinates(
-    background1Canvas.width,
-    background1Canvas.height,
-    backgroundBlockSize
-  )
+const shotCoords = randomizeCoordinates(shotBorderCoords, shotInsideCoords);
+
+let [bgBorderCoords, bgInsideCoords] = getAllCoordinates(
+  shot1Canvas.width,
+  shot1Canvas.height,
+  backgroundBlockSize
 );
+const backgroundCoords = randomizeCoordinates(bgBorderCoords, bgInsideCoords);
+
+// Configure drawing delay
+const shotInitialSleep = 50;
+const shotLaterSleep = 0;
+const backgroundInitialSleep = 50;
+const backgroundLaterSleep = 0;
 
 // Draw initial image
 shot1Ctx.drawImage(img1, 0, 0, shot1Canvas.width, shot1Canvas.height);
@@ -153,6 +162,7 @@ background1Ctx.drawImage(
 async function animate() {
   let img1 = loadedImages[position % loadedImages.length];
   let img2 = loadedImages[(position + 1) % loadedImages.length];
+  await sleep(12000);
   await transition(
     img1,
     img2,
@@ -167,10 +177,13 @@ async function animate() {
     backgroundCoords,
     backgroundBlockSize,
     shotCoords,
-    shotBlockSize
+    shotBlockSize,
+    backgroundInitialSleep,
+    backgroundLaterSleep,
+    shotInitialSleep,
+    shotLaterSleep
   );
   position++;
-  await sleep(5000);
   requestAnimationFrame(animate);
 }
 

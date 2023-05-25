@@ -7,7 +7,9 @@ async function fadeOut(
   context1: CanvasRenderingContext2D,
   context2: CanvasRenderingContext2D,
   coordinates: Array<Array<number>>,
-  blockSize: number
+  blockSize: number,
+  initialSleep: number,
+  laterSleep: number
 ): Promise<void> {
   return new Promise(async (resolve, reject) => {
     context2.drawImage(shot2, 0, 0, canvas2.width, canvas2.height);
@@ -24,12 +26,12 @@ async function fadeOut(
         }
       }
 
-      if (b < coordinates.length / 3 && b % 10 === 0) {
+      if (b < coordinates.length / 4 && b % 25 === 0) {
         context1.putImageData(image, 0, 0);
-        await sleep(0.000000000001);
-      } else if (b % 5 == 0) {
+        await sleep(initialSleep);
+      } else if (b % 25 == 0) {
         context1.putImageData(image, 0, 0);
-        await sleep(0.000000000001);
+        await sleep(laterSleep);
       }
     }
     context1.putImageData(image2, 0, 0);
@@ -51,7 +53,11 @@ export function transition(
   backgroundCoords: Array<Array<number>>,
   backgroundBlockSize: number,
   shotCoords: Array<Array<number>>,
-  shotBlockSize: number
+  shotBlockSize: number,
+  backgroundInitialSleep: number,
+  backgroundLaterSleep: number,
+  shotInitialSleep: number,
+  shotLaterSleep: number
 ): Promise<void> {
   return new Promise(async (resolve, reject) => {
     try {
@@ -63,7 +69,9 @@ export function transition(
           background1Ctx,
           background2Ctx,
           backgroundCoords,
-          backgroundBlockSize
+          backgroundBlockSize,
+          backgroundInitialSleep,
+          backgroundLaterSleep
         ),
         fadeOut(
           img2,
@@ -72,7 +80,9 @@ export function transition(
           shot1Ctx,
           shot2Ctx,
           shotCoords,
-          shotBlockSize
+          shotBlockSize,
+          shotInitialSleep,
+          shotLaterSleep
         )
       ]);
 
@@ -82,4 +92,59 @@ export function transition(
       reject(error);
     }
   });
+}
+
+export function transitionNew(
+  img1: HTMLImageElement,
+  img2: HTMLImageElement,
+  background1Canvas: HTMLCanvasElement,
+  background2Canvas: HTMLCanvasElement,
+  background1Ctx: CanvasRenderingContext2D,
+  background2Ctx: CanvasRenderingContext2D,
+  shot1Canvas: HTMLCanvasElement,
+  shot2Canvas: HTMLCanvasElement,
+  shot1Ctx: CanvasRenderingContext2D,
+  shot2Ctx: CanvasRenderingContext2D,
+  backgroundCoords: Array<Array<number>>,
+  backgroundBlockSize: number,
+  shotCoords: Array<Array<number>>,
+  shotBlockSize: number,
+  backgroundInitialSleep: number,
+  backgroundLaterSleep: number,
+  shotInitialSleep: number,
+  shotLaterSleep: number
+): Promise<void> {
+  return new Promise(async (resolve, reject) => {
+    shot2Ctx.drawImage(img2, 0, 0, shot2Canvas.width, shot2Canvas.height);
+    background2Ctx.drawImage(img2, 0, 0, background2Canvas.width, background2Canvas.height);
+    const image1 = shot1Ctx.getImageData(0, 0, shot1Canvas.width, shot1Canvas.height);
+    const image2 = shot2Ctx.getImageData(0, 0, shot2Canvas.width, shot2Canvas.height);
+    const bg1 = background1Ctx.getImageData(0, 0, background1Canvas.width, background1Canvas.height);
+    const bg2 = background2Ctx.getImageData(0, 0, background2Canvas.width, background2Canvas.height);
+
+    // Modify pixel values for given block
+    for (let b = 0; b < shotCoords.length; b++) {
+      let [x_0, y_0] = shotCoords[b];
+      for (let x = x_0; x < x_0 + shotBlockSize; x++) {
+        for (let y = y_0; y < y_0 + shotBlockSize; y++) {
+          let a_idx = y * 4 * shot1Canvas.width + (x * 4 + 3);
+          image1.data[a_idx] = 0;
+          bg1.data[a_idx] = 0;
+        }
+      }
+
+      if (b < shotCoords.length / 2 && b % 25 === 0) {
+        shot1Ctx.putImageData(image1, 0, 0);
+        background1Ctx.putImageData(bg1, 0, 0);
+        await sleep(shotInitialSleep);
+      } else if (b % 50 == 0) {
+        shot1Ctx.putImageData(image1, 0, 0);
+        background1Ctx.putImageData(bg1, 0, 0);
+        await sleep(shotLaterSleep);
+      }
+    }
+    shot1Ctx.putImageData(image2, 0, 0);
+    background1Ctx.putImageData(bg2, 0, 0);
+    resolve();
+  }); 
 }
