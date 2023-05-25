@@ -160,11 +160,9 @@ background1Ctx.drawImage(
 );
 
 async function animate() {
-  let img1 = loadedImages[position % loadedImages.length];
   let img2 = loadedImages[(position + 1) % loadedImages.length];
   await sleep(12000);
   await transition(
-    img1,
     img2,
     background1Canvas,
     background2Canvas,
