@@ -181,6 +181,7 @@ let ready = false;
 async function animate() {
   if (!ready) {
     await setup();
+    ready = true;
   }
 
   let img2 = loadedImages[(position + 1) % loadedImages.length];
