@@ -86,12 +86,19 @@ async function preloadImages() {
   loadedImages = await Promise.all(imagePromises);
 }
 
-// Wait for images to load
+function checkImagesLoaded(): Promise<HTMLImageElement[]> {
+  return new Promise((resolve) => {
+    if (loadedImages.length > 0) {
+      resolve(loadedImages);
+    } else {
+      setTimeout(() => resolve(checkImagesLoaded()), 100); // Check again after 100ms
+    }
+  });
+}
+
+// Load images
 let loadedImages: HTMLImageElement[] = [];
-await preloadImages();
-// Choose initial image
-let position = Math.floor(Math.random() * images.length);
-let img1 = loadedImages[position];
+preloadImages();
 
 // Set up canvasses
 const shot1Canvas = document.getElementById("shot1") as HTMLCanvasElement;
@@ -149,19 +156,35 @@ const shotLaterSleep = 0;
 const backgroundInitialSleep = 50;
 const backgroundLaterSleep = 0;
 
-// Draw initial image
-shot1Ctx.drawImage(img1, 0, 0, shot1Canvas.width, shot1Canvas.height);
-background1Ctx.drawImage(
-  img1,
-  0,
-  0,
-  background1Canvas.width,
-  background1Canvas.height
-);
+let position: number;
+let img1: HTMLImageElement;
+
+async function setup() {
+  await checkImagesLoaded();
+  // Choose initial image
+  position = Math.floor(Math.random() * images.length);
+  img1 = loadedImages[position];
+
+  // Draw initial image
+  shot1Ctx.drawImage(img1, 0, 0, shot1Canvas.width, shot1Canvas.height);
+  background1Ctx.drawImage(
+    img1,
+    0,
+    0,
+    background1Canvas.width,
+    background1Canvas.height
+  );
+}
+
+let ready = false;
 
 async function animate() {
+  if (!ready) {
+    await setup();
+  }
+
   let img2 = loadedImages[(position + 1) % loadedImages.length];
-  await sleep(12000);
+  await sleep(10000);
   await transition(
     img2,
     background1Canvas,
