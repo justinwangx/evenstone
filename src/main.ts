@@ -100,75 +100,79 @@ const setupCanvasAndContext = (id: string) => {
   return { canvas, ctx };
 };
 
-const { canvas: shot1Canvas, ctx: shot1Ctx } = setupCanvasAndContext("shot1");
-const { canvas: shot2Canvas, ctx: shot2Ctx } = setupCanvasAndContext("shot2");
-const { canvas: background1Canvas, ctx: background1Ctx } = setupCanvasAndContext("background-image");
-const { canvas: background2Canvas, ctx: background2Ctx } = setupCanvasAndContext("background-image2");
+async function init() {
+  const { canvas: shot1Canvas, ctx: shot1Ctx } = setupCanvasAndContext("shot1");
+  const { canvas: shot2Canvas, ctx: shot2Ctx } = setupCanvasAndContext("shot2");
+  const { canvas: background1Canvas, ctx: background1Ctx } = setupCanvasAndContext("background-image");
+  const { canvas: background2Canvas, ctx: background2Ctx } = setupCanvasAndContext("background-image2");
 
-// Configure block size and coordinate lists
-const shotBlockSize = 4;
-const backgroundBlockSize = 4;
+  // Configure block size and coordinate lists
+  const shotBlockSize = 4;
+  const backgroundBlockSize = 4;
 
-let [shotBorderCoords, shotInsideCoords] = getAllCoordinates(
-  shot1Canvas.width,
-  shot1Canvas.height,
-  shotBlockSize
-);
-const shotCoords = randomizeCoordinates(shotBorderCoords, shotInsideCoords);
-
-let [bgBorderCoords, bgInsideCoords] = getAllCoordinates(
-  shot1Canvas.width,
-  shot1Canvas.height,
-  backgroundBlockSize
-);
-const backgroundCoords = randomizeCoordinates(bgBorderCoords, bgInsideCoords);
-
-// Configure drawing delay
-const shotInitialSleep = 40;
-const shotLaterSleep = 0;
-const backgroundInitialSleep = 40;
-const backgroundLaterSleep = 0;
-const transitionDelay = 2000;
-
-// Draw initial image
-let position = 16; // magic number - the 16th image just looks nice
-let img1 = await loadNextImage(position);
-shot1Ctx.drawImage(img1, 0, 0, shot1Canvas.width, shot1Canvas.height);
-background1Ctx.drawImage(
-  img1,
-  0,
-  0,
-  background1Canvas.width,
-  background1Canvas.height
-);
-
-async function animate() {
-  const img = await loadNextImage((position + 1) % images.length);
-  position = (position + 1) % images.length;
-
-  await sleep(transitionDelay);
-
-  await transition(
-    img,
-    background1Canvas,
-    background2Canvas,
-    background1Ctx,
-    background2Ctx,
-    shot1Canvas,
-    shot2Canvas,
-    shot1Ctx,
-    shot2Ctx,
-    backgroundCoords,
-    backgroundBlockSize,
-    shotCoords,
-    shotBlockSize,
-    backgroundInitialSleep,
-    backgroundLaterSleep,
-    shotInitialSleep,
-    shotLaterSleep
+  let [shotBorderCoords, shotInsideCoords] = getAllCoordinates(
+    shot1Canvas.width,
+    shot1Canvas.height,
+    shotBlockSize
   );
-  position++;
-  requestAnimationFrame(animate);
+  const shotCoords = randomizeCoordinates(shotBorderCoords, shotInsideCoords);
+
+  let [bgBorderCoords, bgInsideCoords] = getAllCoordinates(
+    shot1Canvas.width,
+    shot1Canvas.height,
+    backgroundBlockSize
+  );
+  const backgroundCoords = randomizeCoordinates(bgBorderCoords, bgInsideCoords);
+
+  // Configure drawing delay
+  const shotInitialSleep = 40;
+  const shotLaterSleep = 0;
+  const backgroundInitialSleep = 40;
+  const backgroundLaterSleep = 0;
+  const transitionDelay = 2000;
+
+  // Draw initial image
+  let position = 16; // magic number - the 16th image just looks nice
+  let img1 = await loadNextImage(position);
+  shot1Ctx.drawImage(img1, 0, 0, shot1Canvas.width, shot1Canvas.height);
+  background1Ctx.drawImage(
+    img1,
+    0,
+    0,
+    background1Canvas.width,
+    background1Canvas.height
+  );
+
+  async function animate() {
+    const img = await loadNextImage((position + 1) % images.length);
+    position = (position + 1) % images.length;
+
+    await sleep(transitionDelay);
+
+    await transition(
+      img,
+      background1Canvas,
+      background2Canvas,
+      background1Ctx,
+      background2Ctx,
+      shot1Canvas,
+      shot2Canvas,
+      shot1Ctx,
+      shot2Ctx,
+      backgroundCoords,
+      backgroundBlockSize,
+      shotCoords,
+      shotBlockSize,
+      backgroundInitialSleep,
+      backgroundLaterSleep,
+      shotInitialSleep,
+      shotLaterSleep
+    );
+    position++;
+    requestAnimationFrame(animate);
+  }
+
+  animate();
 }
 
-animate();
+init().catch(console.error)
