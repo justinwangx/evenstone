@@ -184,6 +184,10 @@ body {
 }
 
 @media (max-width: 767px) {
+  body {
+    height: 100dvh;
+  }
+
   #shot1,
   #shot2,
   .shot-border {

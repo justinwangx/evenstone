@@ -81,56 +81,29 @@ const images = [
   "pictures/es19.webp",
 ];
 
-async function preloadImages() {
-  const imagePromises = images.map((imageUrl) => loadImage(imageUrl));
-  loadedImages = await Promise.all(imagePromises);
+let loadedImages = new Array(images.length);
+
+// Lazily load images
+async function loadNextImage(index: number) {
+  if (!loadedImages[index]) { // If the image isn't loaded yet
+    loadedImages[index] = await loadImage(images[index]);
+  }
+  return loadedImages[index];
 }
 
-function checkImagesLoaded(): Promise<HTMLImageElement[]> {
-  return new Promise((resolve) => {
-    if (loadedImages.length > 0) {
-      resolve(loadedImages);
-    } else {
-      setTimeout(() => resolve(checkImagesLoaded()), 100); // Check again after 100ms
-    }
-  });
-}
+// Set up canvases
+const setupCanvasAndContext = (id: string) => {
+  const canvas = document.getElementById(id) as HTMLCanvasElement;
+  const ctx = canvas.getContext("2d", { willReadFrequently: true }) as CanvasRenderingContext2D;
+  canvas.width = 436;
+  canvas.height = 654;
+  return { canvas, ctx };
+};
 
-// Load images
-let loadedImages: HTMLImageElement[] = [];
-preloadImages();
-
-// Set up canvasses
-const shot1Canvas = document.getElementById("shot1") as HTMLCanvasElement;
-const shot1Ctx = shot1Canvas.getContext("2d", {
-  willReadFrequently: true,
-}) as CanvasRenderingContext2D;
-const shot2Canvas = document.getElementById("shot2") as HTMLCanvasElement;
-const shot2Ctx = shot2Canvas.getContext("2d", {
-  willReadFrequently: true,
-}) as CanvasRenderingContext2D;
-
-const background1Canvas = document.getElementById(
-  "background-image"
-) as HTMLCanvasElement;
-const background1Ctx = background1Canvas.getContext("2d", {
-  willReadFrequently: true,
-}) as CanvasRenderingContext2D;
-const background2Canvas = document.getElementById(
-  "background-image2"
-) as HTMLCanvasElement;
-const background2Ctx = background2Canvas.getContext("2d", {
-  willReadFrequently: true,
-}) as CanvasRenderingContext2D;
-
-shot1Canvas.width = 436;
-shot1Canvas.height = 654;
-shot2Canvas.width = 436;
-shot2Canvas.height = 654;
-background1Canvas.width = 436;
-background1Canvas.height = 654;
-background2Canvas.width = 436;
-background2Canvas.height = 654;
+const { canvas: shot1Canvas, ctx: shot1Ctx } = setupCanvasAndContext("shot1");
+const { canvas: shot2Canvas, ctx: shot2Ctx } = setupCanvasAndContext("shot2");
+const { canvas: background1Canvas, ctx: background1Ctx } = setupCanvasAndContext("background-image");
+const { canvas: background2Canvas, ctx: background2Ctx } = setupCanvasAndContext("background-image2");
 
 // Configure block size and coordinate lists
 const shotBlockSize = 4;
@@ -155,39 +128,28 @@ const shotInitialSleep = 50;
 const shotLaterSleep = 0;
 const backgroundInitialSleep = 50;
 const backgroundLaterSleep = 0;
+const transitionDelay = 2000;
 
-let position: number;
-let img1: HTMLImageElement;
-
-async function setup() {
-  await checkImagesLoaded();
-  // Choose initial image
-  position = Math.floor(Math.random() * images.length);
-  img1 = loadedImages[position];
-
-  // Draw initial image
-  shot1Ctx.drawImage(img1, 0, 0, shot1Canvas.width, shot1Canvas.height);
-  background1Ctx.drawImage(
-    img1,
-    0,
-    0,
-    background1Canvas.width,
-    background1Canvas.height
-  );
-}
-
-let ready = false;
+// Draw initial image
+let position = 16; // magic number - the 16th image just looks nice
+let img1 = await loadNextImage(position);
+shot1Ctx.drawImage(img1, 0, 0, shot1Canvas.width, shot1Canvas.height);
+background1Ctx.drawImage(
+  img1,
+  0,
+  0,
+  background1Canvas.width,
+  background1Canvas.height
+);
 
 async function animate() {
-  if (!ready) {
-    await setup();
-    ready = true;
-  }
+  const img = await loadNextImage((position + 1) % images.length);
+  position = (position + 1) % images.length;
 
-  let img2 = loadedImages[(position + 1) % loadedImages.length];
-  await sleep(10000);
+  await sleep(transitionDelay);
+
   await transition(
-    img2,
+    img,
     background1Canvas,
     background2Canvas,
     background1Ctx,
