@@ -124,9 +124,9 @@ let [bgBorderCoords, bgInsideCoords] = getAllCoordinates(
 const backgroundCoords = randomizeCoordinates(bgBorderCoords, bgInsideCoords);
 
 // Configure drawing delay
-const shotInitialSleep = 50;
+const shotInitialSleep = 40;
 const shotLaterSleep = 0;
-const backgroundInitialSleep = 50;
+const backgroundInitialSleep = 40;
 const backgroundLaterSleep = 0;
 const transitionDelay = 2000;
 
