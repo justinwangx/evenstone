@@ -30,9 +30,10 @@ document.querySelector<HTMLDivElement>("#evenstone")!.innerHTML = `
 // About description
 const aboutContainer = document.getElementById("about-text") as HTMLElement;
 const aboutLines = [
-  "even stone is a 19-photograph series of Diamond Head",
-  "this project is inspired by Monet's Rouen Cathedral series",
-  "these pictures were taken over the course of a day in fall 2022",
+  "this is a series of photographs of Diamond Head",
+  "inspired by Monet's Rouen Cathedral series",
+  "these pictures were taken over the course of a day",
+  "in fall 2022",
 ];
 
 // Make about clickabble
