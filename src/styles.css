@@ -1,149 +1,371 @@
 @font-face {
-  font-family: "Iowan Old Style-Roman";
+  font-family: "Iowan Old Style";
   font-style: normal;
   font-weight: 400;
-  src: url("./bitstream_iowan_old_style_bt.woff2") format("truetype");
+  src: url("/bitstream_iowan_old_style_bt.woff2") format("woff2");
+  font-display: swap;
 }
 
 * {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-  user-select: none;
+}
+
+:root {
+  --bg: #1a1a1a;
+  --ink: #3b3a3a;
+  --ink-soft: rgba(59, 58, 58, 0.7);
+  --mat: rgba(244, 240, 232, 0.32);
+  --text: #f4f0e8;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --serif: "Iowan Old Style", "Iowan Old Style BT", Georgia, serif;
+
+  /* Top fog tint — set in JS to the current photo's sky color, transitions
+   * smoothly during photo crossfades. @property below makes the color
+   * interpolate frame-by-frame instead of snapping. */
+  --top-tint: rgba(220, 220, 220, 0);
+  transition: --top-tint 5000ms ease-in-out;
+}
+
+@property --top-tint {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: rgba(220, 220, 220, 0);
+}
+
+html {
+  background: var(--bg);
 }
 
 body {
   width: 100%;
-  height: 100vh;
+  height: 100dvh;
+  color: var(--ink);
+  font-family: var(--serif);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow: hidden;
+  user-select: none;
 }
 
-#evenstone {
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-}
-
-.words {
-  font-family: "Iowan Old Style-Roman";
-  font-style: normal;
-  font-weight: 400;
-  color: #3b3a3a;
-}
-
-.nav {
-  position: absolute;
-  width: 100%;
-  top: 0;
-  display: flex;
-  justify-content: space-between;
-  margin: 0;
-  padding: 20px 40px;
-  text-align: center;
-  font-size: 16px;
-}
-
-.title {
-  position: absolute;
-  left: 20%;
-  bottom: 40%;
-
-  font-size: 32px;
-  line-height: 44px;
-  text-align: center;
-}
-
-.center {
-  position: absolute;
-  margin: 0;
-  padding: 0;
-  left: 70%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-}
-
-#shot1,
-#shot2 {
-  position: absolute;
-  top: 50%;
-  left: 70%;
-  transform: translate(-50%, -50%);
-  border-radius: 0px;
-}
-
-#shot1 {
-  z-index: 5;
-}
-
-#shot2 {
-  z-index: 4;
-}
-
-.shot-border {
-  position: absolute;
-  width: 463px;
-  height: 681px;
-  top: 50%;
-  left: 70%;
-  transform: translate(-50%, -50%);
-
-  background: url(shot-border.svg), rgba(255, 253, 253, 0.1);
-  border-radius: 0px;
-  z-index: -3;
-  opacity: 100%;
-}
-
-.noise-1 {
+#halo {
   position: fixed;
-  top: 0;
-  left: 0;
+  inset: 0;
   width: 100%;
   height: 100%;
-  z-index: -3;
-  background: url(noise-vignette.png);
-  background-size: cover;
-  mix-blend-mode: overlay;
-  opacity: 10%;
-}
-
-.imperceptible-perlin {
-  position: fixed;
-  top: 50px;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: url(imperceptible-perlin.svg);
-  z-index: -3;
-  opacity: 50%;
-}
-
-.background-noise {
-  position: absolute;
-  top: 5%;
-  width: 100%;
-  height: 95%;
-  background: url(perlin.png);
-  filter: blur(125px);
   z-index: -1;
+  filter: saturate(1.15) brightness(0.85);
 }
 
-#background-image,
-#background-image2 {
+/* Inverse oval mask — clear in the center, blooming to cloud-white past the
+ * oval boundary so the corners feel like soft fog crowding in. A faint
+ * uniform baseline keeps the whole surface from being fully saturated photo.
+ */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 75% 65% at center,
+      transparent 22%,
+      rgba(253, 250, 244, 0.55) 48%,
+      rgba(254, 251, 245, 0.95) 82%,
+      rgba(254, 251, 245, 1.0) 100%
+    ),
+    linear-gradient(rgba(249, 245, 236, 0.15), rgba(249, 245, 236, 0.15));
+}
+
+/* Fog layer — SVG fractal noise mapped to warm-white pixels with varied
+ * alpha. Masked toward the corners so it drifts in like atmosphere on top
+ * of the cream wash rather than being painted on flat. Pulled back from
+ * the previous strength so the photograph stays the focal point.
+ */
+body::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.012' numOctaves='3' seed='7' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.985  0 0 0 0 0.97  0 0 0 0 0.93  1 0 0 0 -0.25'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>");
+  background-size: 200% 200%;
+  background-repeat: no-repeat;
+  opacity: 0.42;
+  mask-image: radial-gradient(
+    ellipse 80% 70% at center,
+    transparent 35%,
+    black 90%
+  );
+  -webkit-mask-image: radial-gradient(
+    ellipse 80% 70% at center,
+    transparent 35%,
+    black 90%
+  );
+  animation: fog-drift 110s ease-in-out infinite alternate;
+}
+
+/* Slow drift contained within a single oversized tile (no repeat), so we
+ * never cross a tile boundary — that boundary was the moving vertical
+ * seam. `alternate` reverses direction each cycle for continuous motion
+ * without a snap-back. */
+@keyframes fog-drift {
+  from { background-position: 0% 0%; }
+  to   { background-position: 100% 100%; }
+}
+
+/* Top-anchored band tinted by the current photo's sky color. Sits above the
+ * halo and the fog noise but below all foreground content, so it feels like
+ * the photograph's own light bleeding into the upper page. */
+.top-glow {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 55%;
+  z-index: -1;
+  pointer-events: none;
+  background: linear-gradient(to bottom, var(--top-tint), transparent 75%);
+}
+
+.layout {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  padding: 60px 24px;
+}
+
+/* Title card on first load — visible immediately so the user never sees
+ * the dark html bg while the photo is loading. Reuses the same layered
+ * atmosphere (cream wash + fog + sky→warm base) as the rest of the page
+ * so the fade-out is a near-seamless dissolve into the lit scene rather
+ * than a flat plate dropping away.
+ */
+.title-card {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--serif);
+  font-size: clamp(40px, 5.5vw, 68px);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  color: var(--ink);
+  background:
+    /* Same fog noise as body::after */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='1200' height='800'><filter id='f'><feTurbulence type='fractalNoise' baseFrequency='0.0085' numOctaves='3' seed='4' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0.985  0 0 0 0 0.97  0 0 0 0 0.93  0.55 0 0 0 -0.15'/></filter><rect width='100%' height='100%' filter='url(%23f)'/></svg>")
+      0 0 / 140% 140% repeat,
+    /* Same cream wash as body::before */
+    radial-gradient(
+      ellipse 75% 65% at center,
+      transparent 22%,
+      rgba(253, 250, 244, 0.55) 48%,
+      rgba(254, 251, 245, 0.95) 82%,
+      rgba(254, 251, 245, 1) 100%
+    ),
+    /* Atmospheric base — soft sky at top fading to warm beige at bottom,
+     * approximating an "average" scene of the series. */
+    linear-gradient(
+      to bottom,
+      rgb(155, 175, 200) 0%,
+      rgb(206, 196, 178) 60%,
+      rgb(220, 198, 162) 100%
+    );
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 1.6s ease;
+}
+.title-card.hidden {
+  opacity: 0;
+}
+
+.link {
+  position: fixed;
+  top: 24px;
+  right: clamp(20px, 4vw, 40px);
+  z-index: 30;
+  background: none;
+  border: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--text);
+  opacity: 0.75;
+  padding: 6px 4px;
+  transition: opacity 0.3s ease;
+}
+.link:hover {
+  opacity: 1;
+}
+.link.disabled {
+  pointer-events: none;
+  opacity: 0.3;
+}
+
+.stage-stack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.frame {
+  position: relative;
+  padding: clamp(12px, 1.6vw, 20px);
+  background:
+    /* very subtle paper grain on the mat */
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='240' height='240'><filter id='p'><feTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='2' seed='2'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.05 0'/></filter><rect width='100%' height='100%' filter='url(%23p)'/></svg>"),
+    var(--mat);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow:
+    0 36px 70px -24px rgba(0, 0, 0, 0.55),
+    0 14px 32px -12px rgba(0, 0, 0, 0.35),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  animation: breathe 11s ease-in-out infinite;
+}
+
+/* Photo breathes — almost imperceptible scale shift, just enough that the
+ * frame feels alive over long viewing. */
+@keyframes breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.007);
+  }
+}
+
+/* Thin inner stroke just inside the mat — a museum-frame detail. */
+.frame::after {
+  content: "";
   position: absolute;
-  width: 100%;
-  height: 100%;
-  margin: 0;
-  padding: 0;
-  filter: blur(125px);
+  inset: clamp(8px, 1.2vw, 16px);
+  pointer-events: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.10);
 }
 
-#background-image {
-  z-index: -4;
+#stage {
+  display: block;
+  width: min(38vw, calc(76dvh * 2 / 3));
+  aspect-ratio: 2 / 3;
+  background: #111;
 }
 
-#background-image2 {
-  z-index: -5;
+/* Shared mono caption voice — used for the timestamp, the about typeout,
+ * and the about link itself, so all metadata speaks the same way. */
+.caption {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  color: var(--text);
+  text-align: center;
+  white-space: nowrap;
 }
+
+/* Timestamp behaves like a chapter marker — the time flanked by thin
+ * horizontal rules, like a frame number etched beneath a print. The rules
+ * give it visual weight and naturally separate it from the about copy
+ * that may type out below. */
+.timestamp {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  min-height: 1em;
+  opacity: 0;
+  transition: opacity 1.2s ease-in-out;
+}
+.timestamp::before,
+.timestamp::after {
+  content: "";
+  width: 36px;
+  height: 1px;
+  background: currentColor;
+  opacity: 0.45;
+}
+.timestamp.visible {
+  opacity: 0.75;
+}
+
+/* About modal — opens over the slideshow, dims and blurs the photo behind,
+ * and reveals the project's text in a quiet column. Click anywhere or press
+ * Escape to dismiss. */
+.about-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 20, 20, 0);
+  backdrop-filter: blur(0);
+  -webkit-backdrop-filter: blur(0);
+  pointer-events: none;
+  opacity: 0;
+  transition:
+    opacity 0.55s ease,
+    background 0.7s ease,
+    backdrop-filter 0.7s ease,
+    -webkit-backdrop-filter 0.7s ease;
+}
+.about-modal.open {
+  opacity: 1;
+  background: rgba(20, 20, 20, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.about-modal__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  padding: 40px 32px;
+  max-width: min(92vw, 540px);
+  text-align: center;
+}
+
+.about-modal__content > p {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.20em;
+  color: var(--text);
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity 0.55s ease, transform 0.55s ease;
+}
+
+/* Project name in serif to give it weight as the title — a quiet
+ * frontispiece above the description that follows. */
+.about-modal__content > p:first-child {
+  font-family: var(--serif);
+  font-size: clamp(24px, 3.2vw, 32px);
+  letter-spacing: 0.04em;
+  margin-bottom: 14px;
+}
+
+.about-modal.open .about-modal__content > p {
+  opacity: 0.85;
+  transform: translateY(0);
+}
+.about-modal.open .about-modal__content > p:first-child {
+  opacity: 1;
+}
+
+/* Stagger the cascade only when opening; on close, all lines fade in unison. */
+.about-modal.open .about-modal__content > p:nth-child(1) { transition-delay: 0.10s; }
+.about-modal.open .about-modal__content > p:nth-child(2) { transition-delay: 0.30s; }
+.about-modal.open .about-modal__content > p:nth-child(3) { transition-delay: 0.45s; }
+.about-modal.open .about-modal__content > p:nth-child(4) { transition-delay: 0.60s; }
+
 
 @keyframes flicker {
   0% {
@@ -157,17 +379,6 @@ body {
   }
 }
 
-#about-text {
-  position: absolute;
-  top: 50%;
-  left: 20%;
-  text-align: center;
-  font-family: "Iowan Old Style-Roman";
-  font-style: normal;
-  font-weight: 400;
-  color: #3b3a3a;
-}
-
 @keyframes fadeout {
   from {
     opacity: 1;
@@ -178,52 +389,62 @@ body {
 }
 
 .fadeout {
-  animation-name: fadeout;
-  animation-duration: 2s;
-  animation-fill-mode: forwards; /* This makes the opacity stay at 0 when the animation ends */
+  animation: fadeout 2s forwards;
 }
 
-@media (max-width: 767px) {
-  body {
-    height: 100dvh;
-  }
+/* Custom cursor — a small DOM ring that follows the mouse. The system
+ * cursor is hidden two ways at once:
+ *   1. `cursor: none` on every element
+ *   2. A transparent 1×1 PNG as a cursor URL fallback — when Chrome
+ *      briefly forgets `cursor: none` on click events (a real Chrome
+ *      quirk), it still has a valid cursor (just invisible) instead of
+ *      reverting to the system arrow. */
+.cursor {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 12px;
+  border: 1px solid rgba(244, 240, 232, 0.9);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1000;
+}
 
-  #shot1,
-  #shot2,
-  .shot-border {
-    left: 50%;
-    top: 50%;
+@media (hover: hover) and (pointer: fine) {
+  *,
+  *::before,
+  *::after {
+    cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+XJrk9AAAAABJRU5ErkJggg==")
+        0 0,
+      none !important;
   }
-
-  #shot1,
-  #shot2 {
-    width: 70%;
-    height: auto;
+  *:focus,
+  *:focus-visible {
+    outline: none !important;
   }
-
-  .shot-border {
-    --width: 75vw;
-    width: var(--width);
-    height: calc(var(--width) * 1.5);
+  .cursor {
+    display: block;
   }
+}
 
-  .nav {
-    padding: 10% 20px;
+@media (max-width: 720px) {
+  .layout {
+    padding: 32px 20px 60px;
   }
-
-  .title {
-    margin: 0;
-    padding: 0;
-    left: 20px;
-    top: 3%;
+  #stage {
+    width: min(80vw, calc(54dvh * 2 / 3));
   }
-
-  #about-text {
-    position: absolute;
-    top: 90%;
-    left: 2%;
-    margin: 0;
-    padding: 0;
-    text-align: center;
+  .caption {
+    font-size: 10px;
+    letter-spacing: 0.18em;
+    white-space: normal;
+  }
+  .link {
+    top: 18px;
+    right: 20px;
+    font-size: 10px;
+    letter-spacing: 0.18em;
   }
 }
