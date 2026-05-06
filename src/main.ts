@@ -25,6 +25,7 @@ charFlicker("about", 6000);
 
 let aboutOpen = false;
 let lastActivation = -Infinity;
+let requestCursorLockFromGesture = () => {};
 
 function openAbout(): void {
   if (aboutOpen) return;
@@ -87,6 +88,9 @@ function setupCursor(): void {
   let pointerLockPending = false;
   let suppressFollowUpClick = false;
   let suppressFollowUpClickTimer: number | null = null;
+  let deferredActivation: { x: number; y: number; timeStamp: number } | null =
+    null;
+  let deferredActivationTimer: number | null = null;
 
   const isPointerLocked = () => document.pointerLockElement === cursorHitArea;
 
@@ -124,6 +128,7 @@ function setupCursor(): void {
       pointerLockPending = false;
     }
   };
+  requestCursorLockFromGesture = requestCursorLock;
 
   const markPointerActivationHandled = () => {
     suppressFollowUpClick = true;
@@ -146,7 +151,43 @@ function setupCursor(): void {
     return true;
   };
 
+  const clearDeferredActivationTimer = () => {
+    if (deferredActivationTimer !== null) {
+      clearTimeout(deferredActivationTimer);
+      deferredActivationTimer = null;
+    }
+  };
+
+  const flushDeferredActivation = () => {
+    const activation = deferredActivation;
+    deferredActivation = null;
+    clearDeferredActivationTimer();
+    if (!activation) return;
+    activateAt(activation.x, activation.y, activation.timeStamp);
+  };
+
   positionCursor(virtualCursorX, virtualCursorY);
+
+  document.addEventListener(
+    "pointerdown",
+    (e) => {
+      if (!isMouseLikePointer(e)) return;
+      if (!isPointerLocked()) {
+        positionCursor(e.clientX, e.clientY);
+      }
+      requestCursorLock();
+    },
+    true
+  );
+
+  document.addEventListener(
+    "keydown",
+    (e) => {
+      if (e.key === "Escape") return;
+      requestCursorLock();
+    },
+    true
+  );
 
   cursorHitArea.addEventListener("pointermove", (e) => {
     if (!isMouseLikePointer(e)) return;
@@ -181,6 +222,23 @@ function setupCursor(): void {
     }
   };
 
+  const activateAfterLock = (x: number, y: number, timeStamp: number) => {
+    lastActivation = timeStamp;
+    updateAboutHover(x, y);
+
+    if (isPointerLocked()) {
+      activateAt(x, y, timeStamp);
+      return;
+    }
+
+    deferredActivation = { x, y, timeStamp };
+    clearDeferredActivationTimer();
+    deferredActivationTimer = window.setTimeout(() => {
+      flushDeferredActivation();
+    }, 350);
+    requestCursorLock();
+  };
+
   cursorHitArea.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     e.stopPropagation();
@@ -190,9 +248,8 @@ function setupCursor(): void {
     if (!isPointerLocked()) {
       positionCursor(e.clientX, e.clientY);
     }
-    requestCursorLock();
     markPointerActivationHandled();
-    activateAt(virtualCursorX, virtualCursorY, e.timeStamp);
+    activateAfterLock(virtualCursorX, virtualCursorY, e.timeStamp);
   });
 
   cursorHitArea.addEventListener("mousedown", (e) => {
@@ -201,10 +258,9 @@ function setupCursor(): void {
     if (!isPointerLocked()) {
       positionCursor(e.clientX, e.clientY);
     }
-    requestCursorLock();
     if (e.timeStamp - lastActivation > 100) {
       markPointerActivationHandled();
-      activateAt(virtualCursorX, virtualCursorY, e.timeStamp);
+      activateAfterLock(virtualCursorX, virtualCursorY, e.timeStamp);
     }
   });
 
@@ -235,10 +291,14 @@ function setupCursor(): void {
       isPointerLocked()
     );
     updateAboutHover(virtualCursorX, virtualCursorY);
+    if (isPointerLocked()) {
+      flushDeferredActivation();
+    }
   });
 
   document.addEventListener("pointerlockerror", () => {
     pointerLockPending = false;
+    flushDeferredActivation();
   });
 
   window.addEventListener("resize", () => {
@@ -491,11 +551,36 @@ async function dismissTitleCard(): Promise<void> {
   card.remove();
 }
 
+function isFullscreenShortcut(e: KeyboardEvent): boolean {
+  const isF = e.key.toLowerCase() === "f";
+  return isF && ((e.ctrlKey && e.shiftKey) || (e.ctrlKey && e.metaKey));
+}
+
+async function toggleFullscreen(): Promise<void> {
+  try {
+    if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      await document.documentElement.requestFullscreen({ navigationUI: "hide" });
+    }
+  } catch {
+    // Fullscreen is browser-owned and may be rejected outside trusted gestures.
+  }
+}
+
 // Keyboard:
-//   ←/→ advance/reverse, space pauses/resumes.
+//   ←/→ advance/reverse, space pauses/resumes, ctrl+shift+F toggles fullscreen.
 //   While the about modal is open, any of esc/space/enter dismisses it
 //   and other navigation keys are ignored.
 document.addEventListener("keydown", (e) => {
+  if (isFullscreenShortcut(e)) {
+    e.preventDefault();
+    e.stopPropagation();
+    requestCursorLockFromGesture();
+    void toggleFullscreen();
+    return;
+  }
+
   if (aboutOpen) {
     if (e.key === "Escape" || e.key === " " || e.key === "Enter") {
       e.preventDefault();
