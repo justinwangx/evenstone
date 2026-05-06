@@ -277,19 +277,6 @@ html.loading-intro .about-modal {
     0 36px 70px -24px rgba(0, 0, 0, 0.55),
     0 14px 32px -12px rgba(0, 0, 0, 0.35),
     inset 0 0 0 1px rgba(255, 255, 255, 0.12);
-  animation: breathe 11s ease-in-out infinite;
-}
-
-/* Photo breathes — almost imperceptible scale shift, just enough that the
- * frame feels alive over long viewing. */
-@keyframes breathe {
-  0%,
-  100% {
-    transform: scale(1);
-  }
-  50% {
-    transform: scale(1.007);
-  }
 }
 
 /* Thin inner stroke just inside the mat — a museum-frame detail. */
