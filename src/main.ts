@@ -13,8 +13,10 @@ const HALO_MAX_DIM = 96; // halo internal resolution; sigma≈5 blur → soft gl
 const stageCanvas = document.getElementById("stage") as HTMLCanvasElement;
 const haloCanvas = document.getElementById("halo") as HTMLCanvasElement;
 const timestampEl = document.getElementById("timestamp") as HTMLElement;
-const aboutBtn = document.getElementById("about") as HTMLButtonElement;
+const aboutBtn = document.getElementById("about") as HTMLElement;
 const aboutModal = document.getElementById("about-modal") as HTMLElement;
+const cursorHitArea = document.getElementById("cursor-hit-area") as HTMLElement;
+const customCursor = document.getElementById("custom-cursor") as HTMLElement;
 
 const stageScene = new Scene(createGl(stageCanvas));
 const halo = new Halo(createGl(haloCanvas), HALO_MAX_DIM, HALO_MAX_DIM);
@@ -22,12 +24,14 @@ const halo = new Halo(createGl(haloCanvas), HALO_MAX_DIM, HALO_MAX_DIM);
 charFlicker("about", 6000);
 
 let aboutOpen = false;
+let lastActivation = -Infinity;
 
 function openAbout(): void {
   if (aboutOpen) return;
   aboutOpen = true;
   aboutModal.classList.add("open");
   aboutModal.setAttribute("aria-hidden", "false");
+  aboutBtn.classList.remove("hover");
 }
 
 function closeAbout(): void {
@@ -37,31 +41,216 @@ function closeAbout(): void {
   aboutModal.setAttribute("aria-hidden", "true");
 }
 
-// preventDefault on mousedown stops the about button from getting focused
-// on click. Focus is the trigger for Chrome's cursor reset glitch — without
-// focus moving to the button, the cursor URL stays applied throughout.
+function toggleAbout(): void {
+  if (aboutOpen) closeAbout();
+  else openAbout();
+}
+
+function hitsAbout(x: number, y: number): boolean {
+  const rect = aboutBtn.getBoundingClientRect();
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+}
+
+function isMouseLikePointer(e: PointerEvent): boolean {
+  return e.pointerType === "mouse" || e.pointerType === "pen";
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
 aboutBtn.addEventListener("mousedown", (e) => e.preventDefault());
 
 aboutBtn.addEventListener("click", (e) => {
   e.stopPropagation();
-  if (aboutOpen) closeAbout();
-  else openAbout();
+  toggleAbout();
+});
+
+aboutBtn.addEventListener("keydown", (e) => {
+  if (e.key !== "Enter" && e.key !== " ") return;
+  e.preventDefault();
+  e.stopPropagation();
+  toggleAbout();
 });
 
 // Click anywhere on the modal backdrop or its content closes it.
 aboutModal.addEventListener("click", () => closeAbout());
 
-// Custom cursor: a small DOM ring that follows the mouse. The system
-// cursor is hidden via CSS — if Chrome leaks the system cursor on certain
-// transitions, the cursor URL fallback (a transparent PNG) holds the line.
 function setupCursor(): void {
-  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) return;
-  const el = document.createElement("div");
-  el.className = "cursor";
-  document.body.appendChild(el);
-  document.addEventListener("mousemove", (e) => {
-    el.style.transform = `translate(${e.clientX}px, ${e.clientY}px) translate(-50%, -50%)`;
+  document.documentElement.classList.add("using-custom-cursor");
+  document.documentElement.style.setProperty("cursor", "none", "important");
+  document.body.style.setProperty("cursor", "none", "important");
+  cursorHitArea.style.setProperty("cursor", "none", "important");
+
+  let virtualCursorX = window.innerWidth / 2;
+  let virtualCursorY = window.innerHeight / 2;
+  let pointerLockPending = false;
+  let suppressFollowUpClick = false;
+  let suppressFollowUpClickTimer: number | null = null;
+
+  const isPointerLocked = () => document.pointerLockElement === cursorHitArea;
+
+  const updateAboutHover = (x: number, y: number) => {
+    aboutBtn.classList.toggle("hover", !aboutOpen && hitsAbout(x, y));
+  };
+
+  const positionCursor = (x: number, y: number) => {
+    virtualCursorX = clamp(x, 0, window.innerWidth);
+    virtualCursorY = clamp(y, 0, window.innerHeight);
+    customCursor.style.transform = `translate3d(${Math.round(
+      virtualCursorX - 12
+    )}px, ${Math.round(virtualCursorY - 12)}px, 0)`;
+    updateAboutHover(virtualCursorX, virtualCursorY);
+  };
+
+  const requestCursorLock = () => {
+    if (isPointerLocked() || pointerLockPending) return;
+    pointerLockPending = true;
+    try {
+      const result = cursorHitArea.requestPointerLock();
+      if (result && typeof result.catch === "function") {
+        void result
+          .catch(() => {
+            // Chrome owns pointer-lock permission and escape UI; rejection only
+            // means we stay in the CSS-hidden fallback until the next gesture.
+          })
+          .finally(() => {
+            pointerLockPending = false;
+          });
+      } else {
+        pointerLockPending = false;
+      }
+    } catch {
+      pointerLockPending = false;
+    }
+  };
+
+  const markPointerActivationHandled = () => {
+    suppressFollowUpClick = true;
+    if (suppressFollowUpClickTimer !== null) {
+      clearTimeout(suppressFollowUpClickTimer);
+    }
+    suppressFollowUpClickTimer = window.setTimeout(() => {
+      suppressFollowUpClick = false;
+      suppressFollowUpClickTimer = null;
+    }, 1000);
+  };
+
+  const consumeFollowUpClick = () => {
+    if (!suppressFollowUpClick) return false;
+    suppressFollowUpClick = false;
+    if (suppressFollowUpClickTimer !== null) {
+      clearTimeout(suppressFollowUpClickTimer);
+      suppressFollowUpClickTimer = null;
+    }
+    return true;
+  };
+
+  positionCursor(virtualCursorX, virtualCursorY);
+
+  cursorHitArea.addEventListener("pointermove", (e) => {
+    if (!isMouseLikePointer(e)) return;
+    if (!isPointerLocked()) {
+      positionCursor(e.clientX, e.clientY);
+    }
   });
+
+  cursorHitArea.addEventListener("mousemove", (e) => {
+    if (!isPointerLocked()) {
+      positionCursor(e.clientX, e.clientY);
+    }
+  });
+
+  cursorHitArea.addEventListener("pointerleave", () => {
+    if (!isPointerLocked()) {
+      aboutBtn.classList.remove("hover");
+    }
+  });
+
+  const activateAt = (x: number, y: number, timeStamp: number) => {
+    lastActivation = timeStamp;
+    updateAboutHover(x, y);
+
+    if (aboutOpen) {
+      closeAbout();
+      return;
+    }
+
+    if (hitsAbout(x, y)) {
+      openAbout();
+    }
+  };
+
+  cursorHitArea.addEventListener("pointerdown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isMouseLikePointer(e)) {
+      return;
+    }
+    if (!isPointerLocked()) {
+      positionCursor(e.clientX, e.clientY);
+    }
+    requestCursorLock();
+    markPointerActivationHandled();
+    activateAt(virtualCursorX, virtualCursorY, e.timeStamp);
+  });
+
+  cursorHitArea.addEventListener("mousedown", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!isPointerLocked()) {
+      positionCursor(e.clientX, e.clientY);
+    }
+    requestCursorLock();
+    if (e.timeStamp - lastActivation > 100) {
+      markPointerActivationHandled();
+      activateAt(virtualCursorX, virtualCursorY, e.timeStamp);
+    }
+  });
+
+  cursorHitArea.addEventListener("click", (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    requestCursorLock();
+    if (!consumeFollowUpClick() && e.timeStamp - lastActivation > 1000) {
+      activateAt(virtualCursorX, virtualCursorY, e.timeStamp);
+    }
+  });
+
+  document.addEventListener(
+    "mousemove",
+    (e) => {
+      if (!isPointerLocked()) return;
+      e.preventDefault();
+      e.stopPropagation();
+      positionCursor(virtualCursorX + e.movementX, virtualCursorY + e.movementY);
+    },
+    true
+  );
+
+  document.addEventListener("pointerlockchange", () => {
+    pointerLockPending = false;
+    document.documentElement.classList.toggle(
+      "pointer-lock-active",
+      isPointerLocked()
+    );
+    updateAboutHover(virtualCursorX, virtualCursorY);
+  });
+
+  document.addEventListener("pointerlockerror", () => {
+    pointerLockPending = false;
+  });
+
+  window.addEventListener("resize", () => {
+    positionCursor(virtualCursorX, virtualCursorY);
+  });
+
+  for (const eventName of ["pointerup", "mouseup"]) {
+    cursorHitArea.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+    });
+  }
 }
 setupCursor();
 
