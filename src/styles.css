@@ -20,6 +20,7 @@
   --text: #f4f0e8;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --serif: "Iowan Old Style", "Iowan Old Style BT", Georgia, serif;
+  --evenstone-cursor-size: 24px;
 
   /* Top fog tint — set in JS to the current photo's sky color, transitions
    * smoothly during photo crossfades. @property below makes the color
@@ -32,6 +33,19 @@
   syntax: "<color>";
   inherits: true;
   initial-value: rgba(220, 220, 220, 0);
+}
+
+html,
+body,
+*,
+*::before,
+*::after {
+  cursor: none !important;
+}
+
+*:focus,
+*:focus-visible {
+  outline: none !important;
 }
 
 html {
@@ -199,11 +213,11 @@ body::after {
   padding: 6px 4px;
   transition: opacity 0.3s ease;
 }
-.link:hover {
+.link:hover,
+.link.hover {
   opacity: 1;
 }
 .link.disabled {
-  pointer-events: none;
   opacity: 0.3;
 }
 
@@ -300,7 +314,7 @@ body::after {
 .about-modal {
   position: fixed;
   inset: 0;
-  z-index: 10;
+  z-index: 40;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -392,41 +406,51 @@ body::after {
   animation: fadeout 2s forwards;
 }
 
-/* Custom cursor — a small DOM ring that follows the mouse. The system
- * cursor is hidden two ways at once:
- *   1. `cursor: none` on every element
- *   2. A transparent 1×1 PNG as a cursor URL fallback — when Chrome
- *      briefly forgets `cursor: none` on click events (a real Chrome
- *      quirk), it still has a valid cursor (just invisible) instead of
- *      reverting to the system arrow. */
-.cursor {
-  display: none;
+/* A permanent transparent hit layer owns mouse input, while pointer lock
+ * turns mouse motion into deltas for the custom cursor below.
+ */
+#cursor-hit-area {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 12px;
-  height: 12px;
-  border: 1px solid rgba(244, 240, 232, 0.9);
-  border-radius: 50%;
-  pointer-events: none;
-  z-index: 1000;
+  inset: 0;
+  z-index: 900;
+  background: transparent;
+  pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+  -webkit-tap-highlight-color: transparent;
+  cursor: none !important;
 }
 
-@media (hover: hover) and (pointer: fine) {
-  *,
-  *::before,
-  *::after {
-    cursor: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4//8/AwAI/AL+XJrk9AAAAABJRU5ErkJggg==")
-        0 0,
-      none !important;
-  }
-  *:focus,
-  *:focus-visible {
-    outline: none !important;
-  }
-  .cursor {
-    display: block;
-  }
+#custom-cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1000;
+  width: var(--evenstone-cursor-size);
+  height: var(--evenstone-cursor-size);
+  border: 1px solid rgba(244, 240, 232, 0.92);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 1px rgba(59, 58, 58, 0.22),
+    0 0 10px rgba(244, 240, 232, 0.24);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate3d(-100px, -100px, 0);
+  transition: opacity 0.16s ease;
+  will-change: transform;
+}
+
+html.using-custom-cursor,
+html.using-custom-cursor body,
+html.using-custom-cursor *,
+html.using-custom-cursor *::before,
+html.using-custom-cursor *::after {
+  cursor: none !important;
+}
+
+html.using-custom-cursor #custom-cursor {
+  opacity: 1;
 }
 
 @media (max-width: 720px) {

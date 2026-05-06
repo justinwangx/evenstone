@@ -8,14 +8,49 @@
     <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32x32.png" />
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <title>evenstone</title>
+    <style>
+      :root {
+        --evenstone-cursor-size: 24px;
+      }
+      html,
+      body,
+      *,
+      *::before,
+      *::after {
+        cursor: none !important;
+      }
+      #cursor-hit-area {
+        position: fixed;
+        inset: 0;
+        z-index: 900;
+        background: transparent;
+        cursor: none !important;
+      }
+      #custom-cursor {
+        position: fixed;
+        left: 0;
+        top: 0;
+        z-index: 1000;
+        width: var(--evenstone-cursor-size);
+        height: var(--evenstone-cursor-size);
+        border: 1px solid rgba(244, 240, 232, 0.92);
+        border-radius: 50%;
+        pointer-events: none;
+        transform: translate3d(-100px, -100px, 0);
+      }
+    </style>
+    <script>
+      document.documentElement.classList.add("using-custom-cursor");
+    </script>
   </head>
   <body>
     <canvas id="halo"></canvas>
     <div class="top-glow"></div>
 
     <div id="title-card" class="title-card">evenstone</div>
-
-    <button id="about" class="link">about</button>
+    <span id="about" class="link" role="button" tabindex="0">about</span>
+    <div id="cursor-hit-area" aria-hidden="true"></div>
+    <div id="custom-cursor" aria-hidden="true"></div>
 
     <main class="layout">
       <div class="stage-stack">
