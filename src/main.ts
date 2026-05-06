@@ -78,6 +78,12 @@ aboutBtn.addEventListener("keydown", (e) => {
 aboutModal.addEventListener("click", () => closeAbout());
 
 function setupCursor(): void {
+  if (!matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    cursorHitArea.remove();
+    customCursor.remove();
+    return;
+  }
+
   document.documentElement.classList.add("using-custom-cursor");
   document.documentElement.style.setProperty("cursor", "none", "important");
   document.body.style.setProperty("cursor", "none", "important");

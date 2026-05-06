@@ -486,8 +486,16 @@ html.using-custom-cursor *::after {
   cursor: none !important;
 }
 
-html.using-custom-cursor #custom-cursor {
-  opacity: 1;
+@media (hover: hover) and (pointer: fine) {
+  html.using-custom-cursor #custom-cursor {
+    opacity: 1;
+  }
+}
+
+@media (hover: none), (pointer: coarse) {
+  #custom-cursor {
+    display: none;
+  }
 }
 
 @media (max-width: 720px) {

@@ -116,7 +116,9 @@
       }
     </style>
     <script>
-      document.documentElement.classList.add("using-custom-cursor");
+      if (matchMedia("(hover: hover) and (pointer: fine)").matches) {
+        document.documentElement.classList.add("using-custom-cursor");
+      }
     </script>
   </head>
   <body>
