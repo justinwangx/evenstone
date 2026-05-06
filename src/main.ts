@@ -9,6 +9,8 @@ const HOLD_MS = 5000;
 const TRANSITION_MS = 5000;
 const BLOCK_SIZE_CSS = 3;
 const HALO_MAX_DIM = 96; // halo internal resolution; sigma≈5 blur → soft glow
+const LOOKAHEAD_COUNT = 4;
+const TEXTURE_CACHE_LIMIT = LOOKAHEAD_COUNT + 1;
 
 const stageCanvas = document.getElementById("stage") as HTMLCanvasElement;
 const haloCanvas = document.getElementById("halo") as HTMLCanvasElement;
@@ -419,23 +421,59 @@ function setThemeColor(index: number): void {
   themeMeta.content = `rgb(${dim(r)}, ${dim(g)}, ${dim(b)})`;
 }
 
-// Texture caches — one per WebGL context, since textures aren't shareable
+// Texture caches — one per WebGL context, since textures aren't shareable.
+// Keep a small forward-only moving window on the GPU: current plus the next
+// few photos. The source WebP fetches stay browser-cached, but old textures
+// are explicitly deleted so long fullscreen sessions don't keep every photo
+// resident.
 interface TextureLoader {
   loadPhoto(image: HTMLImageElement): PhotoTexture;
+  destroyPhoto(photo: PhotoTexture): void;
 }
-function makeTextureCache(loader: TextureLoader) {
+interface TextureCache {
+  get(index: number): Promise<PhotoTexture>;
+  preload(index: number): void;
+  trim(retain: Set<number>): void;
+}
+
+function makeTextureCache(loader: TextureLoader): TextureCache {
   const cache = new Map<number, Promise<PhotoTexture>>();
-  return (index: number): Promise<PhotoTexture> => {
+
+  const touch = (index: number, entry: Promise<PhotoTexture>) => {
+    cache.delete(index);
+    cache.set(index, entry);
+  };
+
+  const get = (index: number): Promise<PhotoTexture> => {
     let entry = cache.get(index);
     if (!entry) {
       entry = getImage(index).then((img) => loader.loadPhoto(img));
       cache.set(index, entry);
+    } else {
+      touch(index, entry);
     }
     return entry;
   };
+
+  const trim = (retain: Set<number>) => {
+    for (const [index, entry] of cache) {
+      if (cache.size <= TEXTURE_CACHE_LIMIT) break;
+      if (retain.has(index)) continue;
+      cache.delete(index);
+      void entry.then((photo) => loader.destroyPhoto(photo), () => undefined);
+    }
+  };
+
+  return {
+    get,
+    preload(index: number): void {
+      void get(index).catch(() => undefined);
+    },
+    trim,
+  };
 }
-const getStageTexture = makeTextureCache(stageScene);
-const getHaloTexture = makeTextureCache(halo);
+const stageTextureCache = makeTextureCache(stageScene);
+const haloTextureCache = makeTextureCache(halo);
 
 interface Pair {
   stage: PhotoTexture;
@@ -443,10 +481,28 @@ interface Pair {
 }
 async function getPair(index: number): Promise<Pair> {
   const [stage, halo] = await Promise.all([
-    getStageTexture(index),
-    getHaloTexture(index),
+    stageTextureCache.get(index),
+    haloTextureCache.get(index),
   ]);
   return { stage, halo };
+}
+
+function retainedPhotoIndexes(centerSeqIdx: number): Set<number> {
+  const retain = new Set<number>();
+  for (let offset = 0; offset <= LOOKAHEAD_COUNT; offset++) {
+    retain.add(seq[(centerSeqIdx + offset + seq.length) % seq.length]);
+  }
+  return retain;
+}
+
+function preloadAround(centerSeqIdx: number): void {
+  const retain = retainedPhotoIndexes(centerSeqIdx);
+  for (const index of retain) {
+    stageTextureCache.preload(index);
+    haloTextureCache.preload(index);
+  }
+  stageTextureCache.trim(retain);
+  haloTextureCache.trim(retain);
 }
 
 type State =
@@ -526,27 +582,32 @@ async function advance(direction: 1 | -1): Promise<void> {
   isTransitioning = true;
   clearAdvanceTimer();
 
-  const nextSeqIdx = (cursor + direction + seq.length) % seq.length;
-  const next = await getPair(seq[nextSeqIdx]);
-  void getPair(seq[(cursor + direction * 2 + seq.length * 2) % seq.length]);
+  try {
+    const nextSeqIdx = (cursor + direction + seq.length) % seq.length;
+    const next = await getPair(seq[nextSeqIdx]);
 
-  hideTimestamp();
-  state = {
-    kind: "transition",
-    from: current,
-    to: next,
-    start: performance.now(),
-  };
-  setTopTint(seq[nextSeqIdx]);
-  setThemeColor(seq[nextSeqIdx]);
-  await sleep(TRANSITION_MS);
+    hideTimestamp();
+    state = {
+      kind: "transition",
+      from: current,
+      to: next,
+      start: performance.now(),
+    };
+    setTopTint(seq[nextSeqIdx]);
+    setThemeColor(seq[nextSeqIdx]);
+    await sleep(TRANSITION_MS);
 
-  current = next;
-  cursor = nextSeqIdx;
-  state = { kind: "hold", pair: current };
-  showTimestamp(seq[cursor]);
-  isTransitioning = false;
-  scheduleAdvance();
+    current = next;
+    cursor = nextSeqIdx;
+    state = { kind: "hold", pair: current };
+    showTimestamp(seq[cursor]);
+    preloadAround(cursor);
+  } catch (err) {
+    console.error(err);
+  } finally {
+    isTransitioning = false;
+    scheduleAdvance();
+  }
 }
 
 async function dismissTitleCard(): Promise<void> {
@@ -623,6 +684,7 @@ async function run(): Promise<void> {
   state = { kind: "hold", pair: current };
   setTopTint(seq[cursor]);
   setThemeColor(seq[cursor]);
+  preloadAround(cursor);
   requestAnimationFrame(render);
 
   // Hold the title for a beat so it reads, then dismiss.
