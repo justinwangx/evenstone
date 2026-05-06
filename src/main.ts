@@ -546,9 +546,16 @@ async function advance(direction: 1 | -1): Promise<void> {
 async function dismissTitleCard(): Promise<void> {
   const card = document.getElementById("title-card");
   if (!card) return;
+  if (matchMedia("(hover: hover) and (pointer: fine)").matches) {
+    card.classList.add("show-hint");
+    await sleep(1150);
+    card.classList.add("show-hint-text");
+    await sleep(2250);
+  }
   card.classList.add("hidden");
   await sleep(1600); // matches CSS transition
   card.remove();
+  document.documentElement.classList.remove("loading-intro");
 }
 
 function isFullscreenShortcut(e: KeyboardEvent): boolean {
