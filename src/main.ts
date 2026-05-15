@@ -19,6 +19,7 @@ const aboutBtn = document.getElementById("about") as HTMLElement;
 const aboutModal = document.getElementById("about-modal") as HTMLElement;
 const cursorHitArea = document.getElementById("cursor-hit-area") as HTMLElement;
 const customCursor = document.getElementById("custom-cursor") as HTMLElement;
+const recordingMode = new URLSearchParams(location.search).has("recording");
 
 const stageScene = new Scene(createGl(stageCanvas));
 const halo = new Halo(createGl(haloCanvas), HALO_MAX_DIM, HALO_MAX_DIM);
@@ -80,6 +81,12 @@ aboutBtn.addEventListener("keydown", (e) => {
 aboutModal.addEventListener("click", () => closeAbout());
 
 function setupCursor(): void {
+  if (recordingMode) {
+    cursorHitArea.remove();
+    customCursor.remove();
+    return;
+  }
+
   if (!matchMedia("(hover: hover) and (pointer: fine)").matches) {
     cursorHitArea.remove();
     customCursor.remove();
